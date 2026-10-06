@@ -828,14 +828,17 @@ def attempt_load_one_weight(weight, device=None, inplace=True, fuse=False):
     return model, ckpt
 
 
-def parse_model(d, ch, verbose=True):  # model_dict, input_channels(3)
+def parse_model(d, ch, verbose=True):  # d: 读取yaml后的模型配置字典，eg: d["nc"] = 80,    ch: RGB输入3通道
     """Parse a YOLO model.yaml dictionary into a PyTorch model."""
+    """根据 YAML 配置，创建实际的 PyTorch 网络模块，并记录模块之间的连接关系"""
     import ast
 
     # Args
-    max_channels = float("inf")
+    max_channels = float("inf") # 如果后边有scales，再用其中的值替换
     nc, act, scales = (d.get(x) for x in ("nc", "activation", "scales"))
+    # kpt_shape 这里没有用到，因为parse_model是通用解析器，所以兼顾多种配置
     depth, width, kpt_shape = (d.get(x, 1.0) for x in ("depth_multiple", "width_multiple", "kpt_shape"))
+    
     if scales:
         scale = d.get("scale")
         if not scale:
@@ -854,11 +857,13 @@ def parse_model(d, ch, verbose=True):  # model_dict, input_channels(3)
     layers, save, c2 = [], [], ch[-1]  # layers, savelist, ch out
     for i, (f, n, m, args) in enumerate(d["backbone"] + d["head"]):  # from, number, module, args
         m = getattr(torch.nn, m[3:]) if "nn." in m else globals()[m]  # get module
+        # 取参数
         for j, a in enumerate(args):
             if isinstance(a, str):
                 with contextlib.suppress(ValueError):
                     args[j] = locals()[a] if a in locals() else ast.literal_eval(a)
 
+        # 计算重复次数
         n = n_ = max(round(n * depth), 1) if n > 1 else n  # depth gain
         if m in {
             Classify,

@@ -50,7 +50,7 @@ class Conv(nn.Module):
         return self.act(self.bn(self.conv(x)))
 
     def forward_fuse(self, x):
-        """Perform transposed convolution of 2D data."""
+        """Perform  convolution of 2D data."""
         return self.act(self.conv(x))
 
 
@@ -71,11 +71,19 @@ class Conv2(Conv):
         return self.act(self.bn(self.conv(x)))
 
     def fuse_convs(self):
-        """Fuse parallel convolutions."""
+        # 创建一个与主分支卷积核形状相同的全零张量
         w = torch.zeros_like(self.conv.weight.data)
+
+        # 找到卷积核高、宽方向的中心位置
+        # 对于 3×3，结果是 [1, 1]，因为索引从 0 开始
         i = [x // 2 for x in w.shape[2:]]
-        w[:, :, i[0] : i[0] + 1, i[1] : i[1] + 1] = self.cv2.weight.data.clone()
+
+        # 把 1×1 分支的权重放到中心位置
+        w[:, :, i[0]:i[0]+1, i[1]:i[1]+1] = self.cv2.weight.data.clone()
+
+        # 加到主分支的权重上
         self.conv.weight.data += w
+        
         self.__delattr__("cv2")
         self.forward = self.forward_fuse
 
