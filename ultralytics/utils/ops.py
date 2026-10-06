@@ -849,16 +849,20 @@ def clean_str(s):
     return re.sub(pattern="[|@#!¡·$€%&()=?¿^*;:,¨´><+]", repl="_", string=s)
 
 def v10postprocess(preds, max_det, nc=80):
+    '''从所有预测位置的类别分数中，选出分数最高的 max_det 个“框—类别”组合，返回对应的框、分数和类别'''
     assert(4 + nc == preds.shape[-1])
     boxes, scores = preds.split([4, nc], dim=-1)
-    max_scores = scores.amax(dim=-1)
-    max_scores, index = torch.topk(max_scores, max_det, dim=-1)
-    index = index.unsqueeze(-1)
+    max_scores = scores.amax(dim=-1) # 选出每个det的分数最大值
+    max_scores, index = torch.topk(max_scores, max_det, dim=-1) # 找到每个分数在输入上的索引
+    index = index.unsqueeze(-1) # 增加一个维度
+    
+    # 根据位置索引，同步取出框和所有类别分数
     boxes = torch.gather(boxes, dim=1, index=index.repeat(1, 1, boxes.shape[-1]))
     scores = torch.gather(scores, dim=1, index=index.repeat(1, 1, scores.shape[-1]))
 
+    # 选择具体的“位置—类别”组合
     scores, index = torch.topk(scores.flatten(1), max_det, dim=-1)
     labels = index % nc
     index = index // nc
     boxes = boxes.gather(dim=1, index=index.unsqueeze(-1).repeat(1, 1, boxes.shape[-1]))
-    return boxes, scores, labels
+    return boxes, scores, labels 

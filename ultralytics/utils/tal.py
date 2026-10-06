@@ -33,7 +33,7 @@ class TaskAlignedAssigner(nn.Module):
         self.bg_idx = num_classes
         self.alpha = alpha
         self.beta = beta
-        self.eps = eps
+        self.eps = eps # 避免除零
 
     @torch.no_grad()
     def forward(self, pd_scores, pd_bboxes, anc_points, gt_labels, gt_bboxes, mask_gt):
@@ -89,10 +89,13 @@ class TaskAlignedAssigner(nn.Module):
 
     def get_pos_mask(self, pd_scores, pd_bboxes, gt_labels, gt_bboxes, anc_points, mask_gt):
         """Get in_gts mask, (b, max_num_obj, h*w)."""
+        # 判断每个参考点是否位于每个真实框内部
         mask_in_gts = self.select_candidates_in_gts(anc_points, gt_bboxes)
         # Get anchor_align metric, (b, max_num_obj, h*w)
+        # 计算“真实目标—预测位置”之间的匹配分数与定位质量
         align_metric, overlaps = self.get_box_metrics(pd_scores, pd_bboxes, gt_labels, gt_bboxes, mask_in_gts * mask_gt)
         # Get topk_metric mask, (b, max_num_obj, h*w)
+        # 对每个真实目标，根据匹配分数选出 Top-K 候选
         mask_topk = self.select_topk_candidates(align_metric, topk_mask=mask_gt.expand(-1, -1, self.topk).bool())
         # Merge all mask to a final mask, (b, max_num_obj, h*w)
         mask_pos = mask_topk * mask_in_gts * mask_gt

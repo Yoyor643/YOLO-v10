@@ -769,6 +769,7 @@ class C2fCIB(C2f):
 
 
 class Attention(nn.Module):
+    # attn_ratio控制Q、K的维度与V的维度的不同
     def __init__(self, dim, num_heads=8,
                  attn_ratio=0.5):
         super().__init__()
@@ -776,7 +777,7 @@ class Attention(nn.Module):
         self.head_dim = dim // num_heads
         self.key_dim = int(self.head_dim * attn_ratio)
         self.scale = self.key_dim ** -0.5
-        nh_kd = nh_kd = self.key_dim * num_heads
+        nh_kd = self.key_dim * num_heads
         h = dim + nh_kd * 2
         self.qkv = Conv(dim, h, 1, act=False)
         self.proj = Conv(dim, dim, 1, act=False)
@@ -820,7 +821,9 @@ class PSA(nn.Module):
 class SCDown(nn.Module):
     def __init__(self, c1, c2, k, s):
         super().__init__()
+        # cv1做通道交互、改变通道数
         self.cv1 = Conv(c1, c2, 1, 1)
+        # cv2做深度卷积：group = c2，每个通道只关注自己内部的空间信息
         self.cv2 = Conv(c2, c2, k=k, s=s, g=c2, act=False)
 
     def forward(self, x):

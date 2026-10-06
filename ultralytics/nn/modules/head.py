@@ -31,9 +31,9 @@ class Detect(nn.Module):
         """Initializes the YOLOv8 detection layer with specified number of classes and channels."""
         super().__init__()
         self.nc = nc  # number of classes
-        self.nl = len(ch)  # number of detection layers
+        self.nl = len(ch)  # number of detection layers输入P3、P4、P5，nl = 特征图的数量
         self.reg_max = 16  # DFL channels (ch[0] // 16 to scale 4/8/12/16/20 for n/s/m/l/x)
-        self.no = nc + self.reg_max * 4  # number of outputs per anchor
+        self.no = nc + self.reg_max * 4  # number of outputs per anchor 80个类别 + 4个方向 * 16个距离预测值
         self.stride = torch.zeros(self.nl)  # strides computed during build
         c2, c3 = max((16, ch[0] // 4, self.reg_max * 4)), max(ch[0], min(self.nc, 100))  # channels
         self.cv2 = nn.ModuleList(
@@ -73,6 +73,7 @@ class Detect(nn.Module):
     def forward_feat(self, x, cv2, cv3):
         y = []
         for i in range(self.nl):
+            # 分别计算三个尺度，将三者作为列表；分别算分类和边框，将两者拼接
             y.append(torch.cat((cv2[i](x[i]), cv3[i](x[i])), 1))
         return y
 
